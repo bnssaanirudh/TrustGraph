@@ -1,0 +1,30 @@
+{
+  "generated_at": "2026-06-14T16:11:21.422352Z",
+  "attack_narrative": "7-stage supply chain breach via VendorX credential compromise",
+  "breach_start": "2024-01-15T06:00:00Z",
+  "breach_end": "2024-01-15T10:08:00Z",
+  "total_financial_exposure_usd": 21150000,
+  "records": {
+    "vendors": 6,
+    "services": 10,
+    "connections": 50,
+    "threats": 32
+  },
+  "attack_stages": {
+    "stage_1": "VendorX credentials compromised via phishing (06:00 UTC)",
+    "stage_2": "Suspicious API gateway calls \u2014 session token abuse (08:00 UTC)",
+    "stage_3": "SSH lateral movement to web-prod-01 (08:47 UTC)",
+    "stage_4": "Container escape and privilege escalation (09:37 UTC)",
+    "stage_5": "Unauthorized PII database exfiltration \u2014 1GB (10:15 UTC)",
+    "stage_6": "CARAG hunt loops executing \u2014 3 iterations (10:55 UTC)",
+    "stage_7": "Isolation applied \u2014 blast radius contained (10:08 UTC)"
+  },
+  "blast_radius_nodes": [
+    "node_api_gw",
+    "node_host_01",
+    "node_container_7",
+    "node_user_svc7",
+    "node_db_customer",
+    "node_db_prod01"
+  ]
+}

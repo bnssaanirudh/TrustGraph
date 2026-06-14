@@ -1,0 +1,11 @@
+service_id,service_name,service_type,vendor_id,ip_address,port,protocol,service_tier,privilege_level,iam_role,gat_compromise_score,anomaly_count,historical_trust_score,risk_state,is_internet_facing,breach_stage,breach_notes
+node_api_gw,VendorX API Gateway,Service,vendor_vendorx,203.0.113.45,443,HTTPS,external,3,vendorx_api_invoker,0.89,47,0.11,compromised,True,2,47 anomalous auth attempts. Session token reuse across 4 IPs. Initial ingress point.
+node_host_01,web-prod-01,Host,vendor_acme,10.0.1.10,22,SSH,dmz,2,ec2_instance_profile,0.74,21,0.28,compromised,False,3,SSH lateral movement detected. 21 suspicious auth events from vendor API gateway IP.
+node_host_02,app-prod-02,Host,vendor_acme,10.0.1.11,8080,HTTP,application,2,ec2_app_profile,0.55,8,0.52,at_risk,False,3,Suspicious process spawning detected. Potential pivot from web-prod-01.
+node_container_7,svc-cluster-7,Container,vendor_acme,172.16.7.7,6443,K8S,compute,3,k8s_service_account,0.68,15,0.35,at_risk,False,4,EXEC commands detected outside IAM boundary. Host path mount attempted (container escape indicator).
+node_db_customer,customer_pii,Database,vendor_databridge,10.0.2.50,5432,PostgreSQL,data,4,rds_db_reader_elevated,0.91,53,0.09,compromised,False,5,"47,000 SELECT queries against users table in 3h. 280x above baseline. PII exfiltration confirmed."
+node_db_prod01,prod-db-01,Database,vendor_databridge,10.0.2.51,5432,PostgreSQL,data,4,rds_superuser,0.82,34,0.18,compromised,False,5,Session token from VendorX API gateway authenticating against prod-db-01 — scope violation.
+node_user_svc7,svc_account_7,User,vendor_vendorx,10.0.1.45,0,IAM,identity,4,svc_account_elevated_all,0.77,28,0.23,compromised,False,4,Service account with overly-broad IAM permissions used as pivot credential.
+node_role_dbreader,db_reader,Role,vendor_databridge,N/A,0,IAM,identity,3,rds_reader_role,0.61,12,0.4,at_risk,False,5,Role assumed by svc_account_7 to access customer_pii table.
+node_api_paystream,PayStream API,Service,vendor_paystream,198.51.100.55,443,HTTPS,external,2,paystream_api_invoker,0.42,7,0.61,at_risk,True,2,Anomalous API volume — 75x baseline. Rate limiting bypass via token rotation.
+node_host_04,pay-proxy-01,Host,vendor_paystream,10.0.1.22,443,HTTPS,dmz,1,ec2_basic_profile,0.28,3,0.75,safe,False,0,No active compromise. Monitoring in place.
