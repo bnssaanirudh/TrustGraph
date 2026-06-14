@@ -26,7 +26,7 @@ MCP_SERVER_HOST = os.getenv("SPLUNK_MCP_HOST", "localhost")
 MCP_SERVER_PORT = int(os.getenv("SPLUNK_MCP_PORT", "8080"))
 MCP_SERVER_URL = f"http://{MCP_SERVER_HOST}:{MCP_SERVER_PORT}"
 MCP_AUTH_TOKEN = os.getenv("SPLUNK_MCP_TOKEN", "mcp_dev_token_2024")
-SPLUNK_INDEX = os.getenv("SPLUNK_INDEX", "trustgraph_security")
+SPLUNK_INDEX = os.getenv("SPLUNK_INDEX", "trustgraph_logs")
 MCP_TIMEOUT = 30.0
 
 
@@ -119,35 +119,16 @@ def _build_spl_query(intent: str, index: str, time_window: str) -> str:
     """
     intent_lower = intent.lower()
     
-    # Intent classification via keyword matching
-    if any(k in intent_lower for k in ["lateral", "movement", "session", "token", "authentication"]):
-        if "token" in intent_lower or "session" in intent_lower:
-            template_key = "session_token_movement"
-        else:
-            template_key = "lateral_movement"
-    elif any(k in intent_lower for k in ["privilege", "escalation", "sudo", "role", "admin"]):
-        template_key = "privilege_escalation"
-    elif any(k in intent_lower for k in ["api", "gateway", "endpoint", "request", "http"]):
-        template_key = "api_anomaly"
-    elif any(k in intent_lower for k in ["database", "db", "sql", "query", "table", "exfil"]):
-        template_key = "database_access"
-    elif any(k in intent_lower for k in ["network", "egress", "exfiltration", "firewall", "bytes"]):
-        template_key = "network_egress"
-    elif any(k in intent_lower for k in ["container", "kubernetes", "docker", "pod", "exec"]):
-        template_key = "container_breach"
+    if "lateral movement" in intent_lower or "auth" in intent_lower:
+        # Match against your threats.csv rows instead of forcing system sourcetypes
+        spl_query = f'search index="{index}" sourcetype="csv" severity="high" OR action="AUTHENTICATE"'
     else:
-        # Default: broad anomaly sweep
-        template_key = "api_anomaly"
-    
-    base_spl = SPL_TEMPLATES[template_key].strip().replace("{index}", index)
-    
-    # Inject time window constraint at the start
-    time_filter = f"earliest=-{time_window} latest=now "
+        spl_query = f'search index="{index}" sourcetype="csv"'
     
     # Build final query with time filter prepended
-    final_spl = f"{base_spl}\n| where _time >= relative_time(now(), \"-{time_window}\")"
+    final_spl = f"{spl_query}\n| where _time >= relative_time(now(), \"-{time_window}\")"
     
-    log.info("SPL query constructed", template=template_key, time_window=time_window, intent_preview=intent[:80])
+    log.info("SPL query constructed", time_window=time_window, intent_preview=intent[:80])
     return final_spl
 
 
@@ -296,42 +277,54 @@ async def run_mcp_spl_query(intent_string: str, time_window: str) -> list[dict[s
             response.raise_for_status()
             raw_data = response.json()
     
-    except httpx.ConnectError:
-        log.warning("MCP server unreachable — returning synthetic demo data", url=MCP_SERVER_URL)
-        raw_data = _generate_synthetic_mcp_response(intent_string, time_window)
+        # Extract result payload from MCP wrapper
+        if "result" in raw_data:
+            inner = raw_data["result"]
+            if isinstance(inner, dict) and "content" in inner:
+                # MCP standard: result.content[0].text is JSON string
+                content_blocks = inner.get("content", [])
+                if content_blocks and isinstance(content_blocks[0], dict):
+                    try:
+                        raw_data = json.loads(content_blocks[0].get("text", "{}"))
+                    except json.JSONDecodeError:
+                        raw_data = {"results": []}
+            else:
+                raw_data = inner
+        
+        # Parse and normalize records
+        telemetry_records = _parse_mcp_response(raw_data)
+        
+        if telemetry_records:
+            log.info(
+                "MCP SPL query complete",
+                records_returned=len(telemetry_records),
+                intent_preview=intent_string[:60],
+            )
+            return telemetry_records
+            
+    except Exception as e:
+        log.warning(f"Splunk API connection failed or timed out: {e}")
+        
+    # Secure Hackathon Fallback: Read directly from local seed files
+    log.info("Falling back to synthetic seed dataset generation...")
+    import pandas as pd
+    import os
     
-    except httpx.TimeoutException:
-        log.error("MCP query timed out", timeout_seconds=MCP_TIMEOUT)
-        raw_data = _generate_synthetic_mcp_response(intent_string, time_window)
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    seed_dir = os.path.join(os.path.dirname(base_dir), "seed_data")
     
-    except httpx.HTTPStatusError as e:
-        log.error("MCP server returned error", status_code=e.response.status_code, body=e.response.text[:200])
-        raw_data = _generate_synthetic_mcp_response(intent_string, time_window)
-    
-    # Extract result payload from MCP wrapper
-    if "result" in raw_data:
-        inner = raw_data["result"]
-        if isinstance(inner, dict) and "content" in inner:
-            # MCP standard: result.content[0].text is JSON string
-            content_blocks = inner.get("content", [])
-            if content_blocks and isinstance(content_blocks[0], dict):
-                try:
-                    raw_data = json.loads(content_blocks[0].get("text", "{}"))
-                except json.JSONDecodeError:
-                    raw_data = {"results": []}
+    try:
+        if "threat" in intent_string.lower():
+            df = pd.read_csv(os.path.join(seed_dir, "threats.csv"))
+        elif "lateral" in intent_string.lower() or "connection" in intent_string.lower() or "escape" in intent_string.lower() or "exfiltration" in intent_string.lower():
+            df = pd.read_csv(os.path.join(seed_dir, "connections.csv"))
         else:
-            raw_data = inner
-    
-    # Parse and normalize records
-    telemetry_records = _parse_mcp_response(raw_data)
-    
-    log.info(
-        "MCP SPL query complete",
-        records_returned=len(telemetry_records),
-        intent_preview=intent_string[:60],
-    )
-    
-    return telemetry_records
+            df = pd.read_csv(os.path.join(seed_dir, "services.csv"))
+            
+        return df.to_dict(orient="records")
+    except Exception as read_err:
+        log.error(f"Failed to read local fallback data: {read_err}")
+        return []
 
 
 def _generate_synthetic_mcp_response(intent: str, time_window: str) -> dict[str, Any]:
