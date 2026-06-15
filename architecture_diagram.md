@@ -4,11 +4,11 @@ The system architecture consists of a real-time data ingestion layer, a graph da
 
 ```mermaid
 graph TB
-    subgraph Data Ingestion & Querying
+    subgraph "Data Ingestion & Querying"
         A[Splunk Enterprise / Cloud] <-->|Telemetry logs| B[Splunk MCP Server]
     end
 
-    subgraph Backend Core (FastAPI)
+    subgraph "Backend Core (FastAPI)"
         B <-->|MCP Protocol| C[FastAPI Main Application]
         C -->|Idempotent writes| D[(Neo4j Graph Database)]
         D -->|Read graph state| E[PyTorch Geometric GAT Engine]
@@ -17,7 +17,7 @@ graph TB
         F -->|Generate SPL| B
     end
 
-    subgraph CARAG Pipeline Detail
+    subgraph "CARAG Pipeline Detail"
         F1[Planner Node] --> F2[Retriever Node]
         F2 --> F3{Evaluator Node}
         F3 -->|Score < 0.85| F4[Refiner Node]
@@ -25,7 +25,7 @@ graph TB
         F3 -->|Score >= 0.85| F5[Mitigator Node]
     end
 
-    subgraph Frontend Dashboard (Next.js)
+    subgraph "Frontend Dashboard (Next.js)"
         G[Next.js App Router UI] <-->|Fetch API Data / REST| C
         G1[ReactFlow Graph View] <--> G
         G2[Operations Telemetry] <--> G
