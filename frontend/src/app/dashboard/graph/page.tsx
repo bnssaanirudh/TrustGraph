@@ -175,7 +175,7 @@ export default function GraphPage() {
   useEffect(() => {
     const fetchGraphData = async () => {
       try {
-        const res = await fetch("http://localhost:8000/api/graph");
+        const res = await fetch("http://localhost:8001/api/graph");
         if (!res.ok) return;
         const data = await res.json();
         

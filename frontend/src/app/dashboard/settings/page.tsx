@@ -15,7 +15,7 @@ const CONFIG_SECTIONS: Record<SettingSection, { title: string; description: stri
     title: "Backend API Configuration",
     description: "FastAPI server connection and authentication settings.",
     fields: [
-      { key: "api_url", label: "API Base URL", value: "http://localhost:8000", type: "text", description: "FastAPI server endpoint" },
+      { key: "api_url", label: "API Base URL", value: "http://localhost:8001", type: "text", description: "FastAPI server endpoint" },
       { key: "api_key", label: "API Key", value: "trustgraph_dev_key_xxxx", type: "password", description: "Backend authentication token" },
       { key: "timeout_ms", label: "Request Timeout (ms)", value: "30000", type: "number", description: "HTTP request timeout" },
     ],

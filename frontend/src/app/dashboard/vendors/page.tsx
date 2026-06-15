@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const VENDORS = [
@@ -149,9 +149,8 @@ export default function VendorsPage() {
             </thead>
             <tbody>
               {sorted.map(vendor => (
-                <>
+                <Fragment key={vendor.id}>
                   <tr
-                    key={vendor.id}
                     onClick={() => setSelectedVendor(selectedVendor === vendor.id ? null : vendor.id)}
                     className={selectedVendor === vendor.id ? "selected" : ""}
                   >
@@ -197,7 +196,7 @@ export default function VendorsPage() {
                   {selectedVendor === vendor.id && (
                     <VendorDetailPanel key={`detail-${vendor.id}`} vendor={vendor} onClose={() => setSelectedVendor(null)} />
                   )}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>
